@@ -29,8 +29,11 @@ from util import nearest_point
 
 
 #################
-# Team creation #
+# Team creation # 
 ################# 
+
+
+"""test to see if it works!"""
 
 
 def create_team(first_index, second_index, is_red,
