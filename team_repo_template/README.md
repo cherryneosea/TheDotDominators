@@ -36,4 +36,3 @@ Vervolgens kan je vanuit de `capture-the-flag` directory jouw agents (bijvoorbee
 ```bash
 python capture.py -r agents/[naam-van-deze-repo]/my_team.py
 ```
-Have fun! Please bring our attention to any problems you discover.
