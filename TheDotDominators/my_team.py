@@ -33,7 +33,7 @@ from util import nearest_point
 ################# 
 
 
-"""test to see if it works!"""
+"""test to see if it works!""" 
 
 
 def create_team(first_index, second_index, is_red,
@@ -145,23 +145,113 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   we give you to get an idea of what an offensive agent might look like,
   but it is by no means the best or only way to build an offensive agent.
   """
+    
+    """Offensive strategy when choosing best action to maximize outcome:
+        - opponents side => current agent becomes pacman aka weak
+        - eating as much food safely on this side
+        - if dying when crying food => stays on enemy side
+        - priortize surviving with a greedy strategy to max score
+        - make sure that pacman doesnt touch enemy(non scared ghost) else death
+        - if ghost scared and pacman touches it => ghost dies
+        - pacman respawns at start
+        - power capsules => enormous advantage
+          => enemy becomes scared ghozst for next 40 moves!! and they can be eaten
+        - PARTIAL OBSERVABILITY => opponents only visible within 5 m-distance else noisy distance readings
+          => pacman has to act stochastically
+        - agent must be fast!!!! """
 
+    #we need more features so the agent aka pacman has a better evaluation in enemy side
+    #also a smart retreat strategy to max scores
     def get_features(self, game_state, action):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
         food_list = self.get_food(successor).as_list()
+        #power-capsules list
+        power_capsules = self.get_capsules(successor).as_list()
+        #scared and non-scared ghosts of the opponent
+        opponents = self.get_opponents(successor).as_list()
+        enemies = self.get_opponents(successor)
+
         features['successor_score'] = -len(food_list)  # self.get_score(successor)
 
-        # Compute distance to the nearest food
+        #my implemented features!
+
+        #compute distance to the nearest power-capsule=> important so larger weight
+        """but add heuristics so agent doesnt act blindly"""
+        if len(power_capsules) > 0:
+            my_pos = successor.get_agent_state(self.index).get_position()
+            min_distance_to_power_capsule = min(
+                [self.get_maze_distance(my_pos, capsule) for capsule in  power_capsules]
+            )
+            features['distance_to_power_capsule'] = min_distance_to_power_capsule
+            #return features  
+            
+        #min distance to scared ghost => good since when eating a capsule they become scared for next
+        #  40moves
+        scared_ghosts = []
+        non_scared_ghosts = []
+        #separate opponenets and store into lists
+        for enemy in enemies:
+            ghost_state = successor.get_ghost_state(enemy)
+            is_scared = ghost_state.scared_timer > 0
+
+            if is_scared:
+                scared_ghosts.append(enemy)
+            else:
+                non_scared_ghosts.append(enemy)
+             
+
+        #compute min distance to different ghosts
+        #edible ghosts
+        if len(scared_ghosts) > 0:
+            my_pos = successor.get_agent_state(self.index).get_position()
+            min_distance_to_scared = min(
+                [self.get_maze_distance(my_pos, scared) for scared in scared_ghosts]
+            )
+            features['distance_to_scared_ghosts'] = min_distance_to_scared
+
+        #dangerous ghosts 
+        if len(non_scared_ghosts) > 0:
+            my_pos = successor.get_agent_state(self.index).get_position()
+            min_distance_to_notscared = min(
+                [self.get_maze_distance(my_pos, not_scared) for not_scared in non_scared_ghosts]
+            )
+            features['distance_to_non_scared_ghosts'] = min_distance_to_notscared
+
+
+
+        # Compute distance to the nearest food 
 
         if len(food_list) > 0:  # This should always be True,  but better safe than sorry
             my_pos = successor.get_agent_state(self.index).get_position()
             min_distance = min([self.get_maze_distance(my_pos, food) for food in food_list])
             features['distance_to_food'] = min_distance
         return features
+    
 
+
+
+
+
+    #add new weights for each extra feature you add => making it context dependant
+    # positive weight = repulsion, negative = attraction
     def get_weights(self, game_state, action):
         return {'successor_score': 100, 'distance_to_food': -1}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
