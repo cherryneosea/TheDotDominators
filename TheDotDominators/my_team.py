@@ -167,9 +167,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         successor = self.get_successor(game_state, action)
         food_list = self.get_food(successor).as_list()
         #power-capsules list
-        power_capsules = self.get_capsules(successor).as_list()
+        power_capsules = self.get_capsules(successor)
         #scared and non-scared ghosts of the opponent
-        opponents = self.get_opponents(successor).as_list()
+        #opponents = self.get_opponents(successor).as_list()
         enemies = self.get_opponents(successor)
 
         features['successor_score'] = -len(food_list)  # self.get_score(successor)
@@ -188,22 +188,25 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             
         #min distance to scared ghost => good since when eating a capsule they become scared for next
         #  40moves
+        #stroing positions!!!! of enemies
         scared_ghosts = []
         non_scared_ghosts = []
-        #separate opponenets and store into lists
+        #separate opponenets and store into lists=> enemy is just an idx
         for enemy in enemies:
-            ghost_state = successor.get_ghost_state(enemy)
-            is_scared = ghost_state.scared_timer > 0
-
-            if is_scared:
-                scared_ghosts.append(enemy)
-            else:
-                non_scared_ghosts.append(enemy)
+            agent_state = successor.get_agent_state(enemy)
+            is_scared = agent_state.scared_timer > 0
+            ghost_pos = agent_state.get_position()
+            # ghost agents may be invisible
+            if not agent_state.is_pacman and ghost_pos is not None:
+                if is_scared:
+                 scared_ghosts.append(ghost_pos)
+                else:
+                 non_scared_ghosts.append(ghost_pos)
              
 
         #compute min distance to different ghosts
         #edible ghosts
-        if len(scared_ghosts) > 0:
+        if scared_ghosts != []:
             my_pos = successor.get_agent_state(self.index).get_position()
             min_distance_to_scared = min(
                 [self.get_maze_distance(my_pos, scared) for scared in scared_ghosts]
@@ -236,7 +239,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     #add new weights for each extra feature you add => making it context dependant
     # positive weight = repulsion, negative = attraction
     def get_weights(self, game_state, action):
-        return {'successor_score': 100, 'distance_to_food': -1}
+        return {'successor_score': 100, 'distance_to_food': -1, 'distance_to_non_scared_ghosts': 4, 'distance_to_scared_ghosts':-5, 'distance_to_power_capsule': -7 }
 
 
 
