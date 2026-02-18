@@ -34,6 +34,7 @@ from util import nearest_point
 
 
 """test to see if it works!""" 
+"""anna is here"""
 
 
 def create_team(first_index, second_index, is_red,
