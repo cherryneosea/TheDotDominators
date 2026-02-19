@@ -12,8 +12,8 @@ In `my_team.py` werd(en) de klasse(n) geïmplementeerd waarmee een team van twee
 - **Onderwijsteam:** Lynn Houthuys, Arno Temmerman
 
 ### Groepsleden
-- Student 1 Naam - e-mail - Github id
-- Student 2 Naam - e-mail - Github id
+- Bisan Alali Almhimed - e-mail - Github id
+- Anna Raes - e-mail - Github id
 
 
 ## 📚 Documentatie
