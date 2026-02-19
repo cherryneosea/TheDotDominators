@@ -36,8 +36,10 @@ from util import nearest_point
 """test to see if it works!""" 
 """anna is here""" """anna heeft gecloned"""
 """joehoew"""
-""""testtesttest"""
+""""testtesttest"""  
 """test after reset"""
+
+"""keep working """
 def create_team(first_index, second_index, is_red,
                 first='OffensiveReflexAgent', second='DefensiveReflexAgent', num_training=0):
     """
@@ -166,6 +168,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     #also a smart retreat strategy to max scores
     def get_features(self, game_state, action):
         features = util.Counter()
+        #next pose on grid
         successor = self.get_successor(game_state, action)
         food_list = self.get_food(successor).as_list()
         #power-capsules list
@@ -231,6 +234,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             my_pos = successor.get_agent_state(self.index).get_position()
             min_distance = min([self.get_maze_distance(my_pos, food) for food in food_list])
             features['distance_to_food'] = min_distance
+
+        #distance to home for pacman to get home when he is in danger and has food
+        
         return features
     
 
@@ -241,7 +247,47 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     #add new weights for each extra feature you add => making it context dependant
     # positive weight = repulsion, negative = attraction
     def get_weights(self, game_state, action):
-        return {'successor_score': 100, 'distance_to_food': -1, 'distance_to_non_scared_ghosts': 4, 'distance_to_scared_ghosts':-5, 'distance_to_power_capsule': -7 }
+        #making getting too close to dangerous ghosts deadly
+        successor = self.get_successor(game_state, action)
+        agent_state = successor.get_agent_state(self.index)
+        pacman_agent = agent_state.is_pacman
+
+        #base weights for pacman when attacking 0> intuitively assigned based on init importance
+        weights = {
+        'successor_score': 100,
+        'distance_to_food': -2,
+        'distance_to_non_scared_ghosts': 5,
+        'distance_to_scared_ghosts': -4,
+        'distance_to_power_capsule': -3,
+        'distance_to_home': -1
+    }
+
+        #it becomes risky for pacman when he has a lot of food on enemy side
+        if agent_state.num_carrying > 0:
+            #scaling up wrt num of carried food
+            weights['distance_to_non_scared_ghosts'] = 20 + 20 * agent_state.num_carrying
+            #avoid danger at all costs
+            #decreasing food attraction
+            weights['distance_to_food'] = -1
+            #urge agent to return home to its side
+            weights['distance_to_home'] = -8 * agent_state.num_carrying
+
+
+
+
+       """ my_pos = successor.get_agent_state(self.index).get_position()eatures = self.get_features(game_state, action)
+        min_distance_dangerous_ghost = features['distance_to_non_scared_ghosts']
+        min_d_scared_ghosts = features['distance_to_scared_ghosts']
+        min_distance_capsules = features['distance_to_power_capsule']
+        min_distance_food = features['distance_to_food']
+        successor_score = features['successor_score']"""
+
+        #edge cases => agent react to state he is in
+        
+      
+
+
+        #return {'successor_score': 100, 'distance_to_food': -1, 'distance_to_non_scared_ghosts': 4, 'distance_to_scared_ghosts':-5, 'distance_to_power_capsule': -7 }
 
 
 
