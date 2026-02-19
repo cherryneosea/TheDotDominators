@@ -37,6 +37,7 @@ from util import nearest_point
 """anna is here""" """anna heeft gecloned"""
 """joehoew"""
 """"testtesttest"""
+"""test after reset"""
 def create_team(first_index, second_index, is_red,
                 first='OffensiveReflexAgent', second='DefensiveReflexAgent', num_training=0):
     """
