@@ -150,13 +150,13 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     """Offensive strategy when choosing best action to maximize outcome:
         - opponents side => current agent becomes pacman aka weak
         - eating as much food safely on this side
-        - if dying when crying food => stays on enemy side
+        - if dying when carrying food => stays on enemy side
         - priortize surviving with a greedy strategy to max score
         - make sure that pacman doesnt touch enemy(non scared ghost) else death
         - if ghost scared and pacman touches it => ghost dies
         - pacman respawns at start
         - power capsules => enormous advantage
-          => enemy becomes scared ghozst for next 40 moves!! and they can be eaten
+          => enemy becomes scared ghost for next 40 moves!! and they can be eaten
         - PARTIAL OBSERVABILITY => opponents only visible within 5 m-distance else noisy distance readings
           => pacman has to act stochastically
         - agent must be fast!!!! """
