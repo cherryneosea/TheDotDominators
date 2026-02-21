@@ -75,6 +75,29 @@ class ReflexCaptureAgent(CaptureAgent):
     def register_initial_state(self, game_state):
         self.start = game_state.get_agent_position(self.index)
         CaptureAgent.register_initial_state(self, game_state)
+        """added legal-home-pos"""
+        #since we only have 15 sec start allowance, we will add all legal home positions
+        #for our agents to avoid computationas
+        
+        grid_width = game_state.get_walls().width
+        grid_height = game_state.get_walls().height
+        mid_grid = grid_width // 2
+        #home positions for my team
+        self.legal_home_positions = []
+
+        #determining our team
+        if self.red:
+            #red is on left-side of board
+            home_x = mid_grid - 1
+        else: #blue team
+            home_x = mid_grid 
+
+        for i in range(grid_height):
+            if not game_state.has_wall(home_x, i):
+                self.legal_home_positions.append((home_x, i))
+
+
+    
 
     def choose_action(self, game_state):
         """
@@ -170,14 +193,20 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         features = util.Counter()
         #next pose on grid
         successor = self.get_successor(game_state, action)
+        #because get food returns a grid-obj 2D boolean array
         food_list = self.get_food(successor).as_list()
         #power-capsules list
         power_capsules = self.get_capsules(successor)
+        #power_capsules_lst = power_capsules.as_list()
         #scared and non-scared ghosts of the opponent
         #opponents = self.get_opponents(successor).as_list()
         enemies = self.get_opponents(successor)
 
+        #immediate gain after eating food
         features['successor_score'] = -len(food_list)  # self.get_score(successor)
+        """how many foods are left to track progress"""
+        features['num_food_left'] = len(food_list)
+        features['num_capsules_left'] =len(power_capsules)
 
         #my implemented features!
 
@@ -210,7 +239,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
              
 
         #compute min distance to different ghosts
-        #edible ghosts
+        #edible ghosts....
         if scared_ghosts != []:
             my_pos = successor.get_agent_state(self.index).get_position()
             min_distance_to_scared = min(
@@ -236,7 +265,13 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             features['distance_to_food'] = min_distance
 
         #distance to home for pacman to get home when he is in danger and has food
-        
+        agent_state = successor.get_agent_state(self.index)
+
+        if agent_state.is_pacman and agent_state.num_carrying > 0:
+            my_pos = agent_state.get_position()
+            distance_to_home = min([self.get_maze_distance(my_pos, home_position) for home_position in self.legal_home_positions])
+            features['distance_to_home'] = distance_to_home
+    
         return features
     
 
@@ -272,24 +307,25 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             #urge agent to return home to its side
             weights['distance_to_home'] = -8 * agent_state.num_carrying
 
+            #if ghosts are very close=> pacman panics
+            features = self.get_features(game_state, action)
+            if 'distance_to_non_scared_ghosts' in features:
+                if features['distance_to_non_scared_ghosts'] <= 2:
+                    weights['distance_to_non_scared_ghosts'] = 1000
 
 
+            #distance to home needs to be modelled as well!
 
-       """ my_pos = successor.get_agent_state(self.index).get_position()eatures = self.get_features(game_state, action)
-        min_distance_dangerous_ghost = features['distance_to_non_scared_ghosts']
-        min_d_scared_ghosts = features['distance_to_scared_ghosts']
-        min_distance_capsules = features['distance_to_power_capsule']
-        min_distance_food = features['distance_to_food']
-        successor_score = features['successor_score']"""
+            #reversing effects for non-scared ghosts
+            if 'distance_to_scared_ghosts' in features:
+                weights['distance_to_scared_ghosts'] = -10
 
-        #edge cases => agent react to state he is in
-        
-      
+        """observations= pacman freezes sometimes and doesnt get food even when ghosts are away, 
+        he is good at avoiding ghosts but i think towards the end he commits suicide given time is ticking
+        he needs to explore more on the enemy side while being safe==> we need greedy and safe weighting strategy"""
 
-
-        #return {'successor_score': 100, 'distance_to_food': -1, 'distance_to_non_scared_ghosts': 4, 'distance_to_scared_ghosts':-5, 'distance_to_power_capsule': -7 }
-
-
+        return weights       
+              
 
 
 
@@ -312,6 +348,16 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     could be like.  It is not the best or only way to make
     such an agent.
     """
+
+    """suggestions for Anna:
+        - we already do invader tracking:
+        => distance-to-invaders and num-ivaders
+        - you could add food defense
+          => num-food-left = to prioratize valuable areas
+          => distance-power-capsules 
+        - defense agent as a scared ghost should avoid invaders
+        - agent also can defend the mid-line border to block invaders from coming in
+        -tracking score of eaten food by enemy on our side => successor-score should be negative if enemy eats our food"""
 
     def get_features(self, game_state, action):
         features = util.Counter()
