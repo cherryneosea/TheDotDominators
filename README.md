@@ -13,7 +13,7 @@ In `my_team.py` werd(en) de klasse(n) geïmplementeerd waarmee een team van twee
 
 ### Groepsleden
 - Bisan Alali Almhimed - e-mail - Github id : still needs to be added
-- Anna Raes - e-mail - Github id
+- Anna Raes - raesanna1@gmail.com - Github id : AnnaRaes1 - Nummerieke Github id: 189148506
 
 
 ## 📚 Documentatie
