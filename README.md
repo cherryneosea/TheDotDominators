@@ -12,7 +12,7 @@ In `my_team.py` werd(en) de klasse(n) geïmplementeerd waarmee een team van twee
 - **Onderwijsteam:** Lynn Houthuys, Arno Temmerman
 
 ### Groepsleden
-- Bisan Alali Almhimed - bisana676@gmail.com - GitHub: Cosmorama – Numerieke GitHub ID: 141347894
+- Bisan Alali Almhimed - bisana676@gmail.com - GitHub: cherryneosea – Numerieke GitHub ID: 120347927
 - Anna Raes - raesanna1@gmail.com - Github id : AnnaRaes1 - Nummerieke Github id: 189148506
 
 
