@@ -33,11 +33,6 @@ from util import nearest_point
 ################# 
 
 
-"""test to see if it works!""" 
-"""anna is here""" """anna heeft gecloned"""
-"""joehoew"""
-""""testtesttest"""  
-"""test after reset"""
 
 """keep working """
 def create_team(first_index, second_index, is_red,
@@ -358,7 +353,33 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         - defense agent as a scared ghost should avoid invaders
         - agent also can defend the mid-line border to block invaders from coming in
         -tracking score of eaten food by enemy on our side => successor-score should be negative if enemy eats our food"""
+    
+    
+    
+    """ - food on own side defend (keeps track of distance to own food, and how many food dots left)
+        - power capsule defense (same principles as food defense)
+        - !!!! still needed: when opponents took power capsule -> scared behavior -> run away from invaders 
+        - !!!! think about this next time: inference for unseen invaders using noisy distances ->  not possible to see opponents all time so using noisy distance to estimate where opponents are."""
+       
 
+    # register the initial state and all the free positions on own side
+    def register_initial_state(self, game_state):
+        super().register_initial_state(game_state)
+
+        #choose 3 points on own side of the grid, those are the 'patroeuillepunten'
+        # agent will walk through these points when there is no invader
+        
+        if self.legal_home_positions:   #self.legal_home_positions is a list of the free points, given in ReflexCaptureAgent
+            sorted_pos = sorted(self.legal_home_positions, key=lambda p: p[1])  # sort these on y-coördinate, from low y-value to high y-value
+            self.patrol_points = [
+                sorted_pos[0],
+                sorted_pos[len(sorted_pos)//2],
+                sorted_pos[-1]
+            ] 
+        #choose the one on posistion 0 (the lowest point), the one in the middle of this list (point somewhere in the middle), the one at the end of this list (highest point
+
+
+    # look at the state after every action, the features are based on the future state, in that way the agent can predict the effect of his actions
     def get_features(self, game_state, action):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
@@ -366,23 +387,82 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         my_state = successor.get_agent_state(self.index)
         my_pos = my_state.get_position()
 
-        # Computes whether we're on defense (1) or offense (0)
-        features['on_defense'] = 1
-        if my_state.is_pacman: features['on_defense'] = 0
+        # the agent is a defender = should stay on own side
+        # bonus if agent is still on own side after an action
+        #is the agent on our own side? (yes = 1, no = 0)
 
-        # Computes distance to invaders we can see
+        features['on_defense'] = 1 if not my_state.is_pacman else 0
+
+
+        # invaders 
         enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
         invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
         features['num_invaders'] = len(invaders)
+
         if len(invaders) > 0:
+            # distance to nearest invader
             dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
             features['invader_distance'] = min(dists)
+        else:
+            #no invaders: go to patrouillepunt
+            target = self.patrol_points[self.patrol_index]
+            features['patrol_distance'] = self.get_maze_distance(my_pos, target)
+        
+        #agent wants to minimise the distance, will move to patroeillepoint
 
+        # defend own fooddots
+        # food_defend_distence; the closer we are to our own food dots, the better we can defend them
+        # food_defend_count; the less food there is left, the 
+        food_defend = self.get_food_you_are_defending(successor).as_list()
+        if food_defend:
+            min_food_dist = min(self.get_maze_distance(my_pos, f) for f in food_defend)
+            features['food_defend_distance'] = min_food_dist
+            features['food_defend_count'] = len(food_defend)
+
+        
+        # defend power capsule
+        capsules_defend = self.get_capsules_you_are_defending(successor)
+        if capsules_defend:
+            min_capsule_dist = min(self.get_maze_distance(my_pos, c) for c in capsules_defend)
+            features['capsule_defend_distance'] = min_capsule_dist
+
+
+        # overall score; the higher the score the better: 
+        features['successor_score'] = self.get_score(successor)
+
+        #when agent is scared -> flee 
+        """"NOG AAN TE PASSEN"""
+        features['scared'] = 1 if my_state.scared_timer > 0:
+        .......
+
+
+        #standing still or going back and forth (given in baseline. alr)    
         if action == Directions.STOP: features['stop'] = 1
         rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
         if action == rev: features['reverse'] = 1
-
         return features
+    
 
     def get_weights(self, game_state, action):
-        return {'num_invaders': -1000, 'on_defense': 100, 'invader_distance': -10, 'stop': -100, 'reverse': -2}
+        return {
+            'on_defense': 100,
+            'num_invaders': -1000,
+            'invader_distance': -10,
+            'patrol_distance': -2,
+            'food_defend_distance': -5,
+            'food_defend_count': 100,
+            'capsule_defend_distance': -8,
+            'successor_score': 100,
+            'stop': -100,
+            'reverse': -10,
+            'scared': 0
+        }
+        
+    #choose the action with the highest score, if there are no invaders -> go to nearest patroeiepunt
+    def choose_action(self, game_state):
+        action = super().choose_action(game_state)
+        invaders = [a for a in self.get_opponents(game_state) if game_state.get_agent_state(a).is_pacman]
+        if len(invaders) == 0:
+            self.patrol_index = (self.patrol_index + 1) % len(self.patrol_points)
+        return action
+    # when there is an invader; patroeille stops, invader_distance -feature with a strong negative wheight, so he wants to go there)
