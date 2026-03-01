@@ -8,11 +8,11 @@ In `my_team.py` werd(en) de klasse(n) geïmplementeerd waarmee een team van twee
 ### Studiedeel
 - **Opleiding:** [Bachelor in de artificiële intelligentie](https://caliweb.vub.be/?page=program&id=00721)
 - **Studiedeel:** [AI Programmeerproject](https://caliweb.vub.be/?page=course-offers&id=011970)
-- **Academiejaar:** _[academiejaar]_
+- **Academiejaar:** _[2025-2026]_
 - **Onderwijsteam:** Lynn Houthuys, Arno Temmerman
 
 ### Groepsleden
-- Bisan Alali Almhimed - e-mail - Github id : still needs to be added
+- Bisan Alali Almhimed - bisana676@gmail.com - GitHub: Cosmorama – Numerieke GitHub ID: 141347894
 - Anna Raes - raesanna1@gmail.com - Github id : AnnaRaes1 - Nummerieke Github id: 189148506
 
 
