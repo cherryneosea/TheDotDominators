@@ -34,11 +34,6 @@ from util import nearest_point
 ################# 
 
 
-"""test to see if it works!""" 
-"""anna is here""" """anna heeft gecloned"""
-"""joehoew"""
-""""testtesttest"""  
-"""test after reset"""
 
 """keep working """
 def create_team(first_index, second_index, is_red,
@@ -493,6 +488,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         if capsules_defend:
             min_capsule_dist = min(self.get_maze_distance(my_pos, c) for c in capsules_defend)
             features['capsule_defend_distance'] = min_capsule_dist"""
+            features['capsule_defend_distance'] = min_capsule_dist
 
 
         # overall score; the higher the score the better: 
