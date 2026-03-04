@@ -68,6 +68,7 @@ class ReflexCaptureAgent(CaptureAgent):
         super().__init__(index, time_for_computing)
         self.start = None
         self.legal_home_positions = []
+        self.patrol_poitns = []
         self.last_pos = None
         
     def register_initial_state(self, game_state):
@@ -98,7 +99,30 @@ class ReflexCaptureAgent(CaptureAgent):
                 self.legal_home_positions.append((home_x, i))
             
                 
-      
+    def minimax(self, game_state, depth, agent_index, ghost_index):
+        #edge case
+        if depth == 0:
+            return self.evaluate(game_state, Directions.STOP) 
+        
+        actions = game_state.get_legal_actions(agent_index)
+        
+        #pacman turn = max
+        if agent_index == self.index:
+            best = float('-inf')
+            for action in actions:
+                successor = self.get_successor(game_state, action)
+                val = self.minimax(successor, depth - 1, ghost_index, ghost_index)
+                best = max(best, val)
+            return best
+        
+        else: #ghost layer = min
+            best = float('inf')
+            for action in actions:
+                successor = game_state.generate_successor(agent_index, action) 
+                val = self.minimax(successor, depth, self.index, ghost_index)
+                best = min(best, val)
+            return best
+        
  
         
 
@@ -117,11 +141,11 @@ class ReflexCaptureAgent(CaptureAgent):
       
         # You can profile your evaluation time by uncommenting these lines
         #start = time.time()
-        values = [self.evaluate(game_state, a) for a in actions]
+        #values = [self.evaluate(game_state, a) for a in actions]
        # print ('eval time for agent %d: %.4f' % (self.index, time.time() - start))
 
-        max_value = max(values)
-        best_actions = [a for a, v in zip(actions, values) if v == max_value]
+        #max_value = max(values)
+       # best_actions = [a for a, v in zip(actions, values) if v == max_value]
         
     
 
@@ -140,42 +164,32 @@ class ReflexCaptureAgent(CaptureAgent):
             return best_action
         
         
-
+        #mini minimax-lookahead strategy
+        """we need the visible ghosts"""
+        enemies = self.get_opponents(game_state)
+        visible = []
+        for i in enemies:
+            enemy_state = game_state.get_agent_state(i)
+            enemy_pos = enemy_state.get_position()
+            #when position in none = ghost not visible
+            if not enemy_state.is_pacman and enemy_pos is not None:
+                my_pos = game_state.get_agent_state(self.index).get_position()
+                d = self.get_maze_distance(my_pos, enemy_pos)
+                if d <= 5:
+                    visible.append(i)
         
-      #look-ahead strategy instead of deep-search
-        best_val = float('-inf')
-        best_actions = []
-        for action in actions:
-            succ1 = self.get_successor(game_state, action)
-            val1 = self.evaluate(game_state, action)
-            
-            #look 1step further
-            actions2 = succ1.get_legal_actions(self.index)
-            if actions2:
-                vals2 = {a2: self.evaluate(succ1, a2) for a2 in actions2}
-                best_a2 = max(vals2, key=vals2.get)
-                val2 = vals2[best_a2]
-                #"3rd step look"
-                succ2 = self.get_successor(succ1, best_a2)
-                actions3 = succ2.get_legal_actions(self.index)
-                if actions3:
-                    val3 = max(self.evaluate(succ2, a3) for a3 in actions3)
-                else:
-                    val3 = 0
-            else:
-                val2 = 0
-                val3 = 0
-            total = val1 + 0.5 * val2 + 0.25 * val3 
-            if total > best_val:
-                best_val = total
-                best_actions = [action]
-            elif total == best_val:
-                best_actions.append(action)
-                
-      
-            
+        
+        if visible:
+            ghost_index = visible[0]
+            values = [self.minimax(self.get_successor(game_state, action), 2, ghost_index, ghost_index) for action in actions]
+        else:
+            values = [self.evaluate(game_state, a) for a in actions]
+        max_val = max(values)
+        best_actions = [a for a, v in zip(actions, values) if v == max_val]
+
         return random.choice(best_actions)
         
+     
              
 
         
@@ -343,6 +357,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
              not walls[x][y+1],
              not walls[x][y-1]
             ])
+       # ghost_dist = features.get('distance_to_non_scared_ghosts', 999)
         # If we're in a tight corridor AND ghost is close, heavily penalize
         if num_exits <= 1:
             features['dead_end'] = 1
@@ -381,25 +396,28 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       
         carrying = game_state.get_agent_state(self.index).num_carrying
         #features = self.get_features(game_state, action)
+        
+    
 
     
         w = {
         'successor_score': 100,
-        'distance_to_food': -4,
-        'distance_to_non_scared_ghosts': 18,
-        'dead_end': -50,
+        'distance_to_food': -5,
+        'distance_to_non_scared_ghosts': 15,
+        'dead_end': -80,
         'distance_to_home': 0,
         'stop': - 500,
-        'reverse': -30,
-         'on_home_side': 0.01,
+        'reverse': -80,
+         'on_home_side': -20,
         'distance_to_power_capsule': -10
        
        
         }
+        
                
          
-        if carrying >= 5:
-            w['distance_to_home'] = -30
+        if carrying >= 3:
+            w['distance_to_home'] = -20
             w['distance_to_food'] = 0
             
          # end
@@ -407,7 +425,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             w['distance_to_home'] = -500
             w['distance_to_food'] = 0
             
+            
         return w
+            
     
    
 
@@ -488,7 +508,8 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         if capsules_defend:
             min_capsule_dist = min(self.get_maze_distance(my_pos, c) for c in capsules_defend)
             features['capsule_defend_distance'] = min_capsule_dist"""
-            features['capsule_defend_distance'] = min_capsule_dist
+            
+        # features['capsule_defend_distance'] = min_capsule_dist
 
 
         # overall score; the higher the score the better: 
