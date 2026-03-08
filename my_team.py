@@ -75,7 +75,7 @@ class ReflexCaptureAgent(CaptureAgent):
         self.start = game_state.get_agent_position(self.index)
         CaptureAgent.register_initial_state(self, game_state)
         
-    
+        #modification 2:  precompute all dead ends
         
      
  
@@ -99,7 +99,7 @@ class ReflexCaptureAgent(CaptureAgent):
                 self.legal_home_positions.append((home_x, i))
             
                 
-    def minimax(self, game_state, depth, agent_index, ghost_index):
+    def minimax(self, game_state, depth, agent_index, ghost_index, alpha=float('-inf'), beta=float('inf')):
         #edge case
         if depth == 0:
             return self.evaluate(game_state, Directions.STOP) 
@@ -111,23 +111,30 @@ class ReflexCaptureAgent(CaptureAgent):
             best = float('-inf')
             for action in actions:
                 successor = self.get_successor(game_state, action)
-                val = self.minimax(successor, depth - 1, ghost_index, ghost_index)
+                val = self.minimax(successor, depth - 1, ghost_index, ghost_index, alpha, beta)
                 best = max(best, val)
+                alpha = max(alpha, best)
+                if beta <= alpha: # prune
+                    break
             return best
         
         else: #ghost layer = min
+            
             best = float('inf')
             for action in actions:
                 successor = game_state.generate_successor(agent_index, action) 
                 val = self.minimax(successor, depth, self.index, ghost_index)
                 best = min(best, val)
+                beta = min(beta, best)
+                if beta <= alpha: #prune
+                    break
             return best
         
  
         
 
 
-    
+    ##disquqlified, timeout , or more than 3secs computations times
 
     def choose_action(self, game_state):
         """
@@ -140,9 +147,9 @@ class ReflexCaptureAgent(CaptureAgent):
             
       
         # You can profile your evaluation time by uncommenting these lines
-        #start = time.time()
+        start = time.time()
         #values = [self.evaluate(game_state, a) for a in actions]
-       # print ('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+       #print ('eval time for agent %d: %.4f' % (self.index, time.time() - start))
 
         #max_value = max(values)
        # best_actions = [a for a, v in zip(actions, values) if v == max_value]
@@ -164,7 +171,8 @@ class ReflexCaptureAgent(CaptureAgent):
             return best_action
         
         
-        #mini minimax-lookahead strategy
+        #mini minimax-lookahead strategy 
+        #modification 1: alpha-beta pruning to improve optimality, cause wth was that
         """we need the visible ghosts"""
         enemies = self.get_opponents(game_state)
         visible = []
@@ -181,11 +189,14 @@ class ReflexCaptureAgent(CaptureAgent):
         
         if visible:
             ghost_index = visible[0]
-            values = [self.minimax(self.get_successor(game_state, action), 2, ghost_index, ghost_index) for action in actions]
+            values = [self.minimax(self.get_successor(game_state, action), 1, ghost_index, ghost_index) for action in actions]
         else:
             values = [self.evaluate(game_state, a) for a in actions]
         max_val = max(values)
         best_actions = [a for a, v in zip(actions, values) if v == max_val]
+        
+        #print ('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+
 
         return random.choice(best_actions)
         
@@ -357,14 +368,24 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
              not walls[x][y+1],
              not walls[x][y-1]
             ])
+        ghost_dist = features.get('distance_to_non_scared_ghosts', 999)
+        if num_exits <= 1:
+            if ghost_dist < 6:
+                features['dead_end'] = 3  # very dangerous
+            elif ghost_dist < 10:
+                features['dead_end'] = 1  # risky
+            else:
+                features['dead_end'] = 0  # safe, ghost is far
+        else:
+            features['dead_end'] = 0
        # ghost_dist = features.get('distance_to_non_scared_ghosts', 999)
         # If we're in a tight corridor AND ghost is close, heavily penalize
-        if num_exits <= 1:
+        '''if num_exits <= 1:
             features['dead_end'] = 1
         elif num_exits == 2:
             features['dead_end'] = 0  # corridor but not a dead end
         else:
-            features['dead_end'] = 0
+            features['dead_end'] = 0'''
             
         # penalty when he should be hunting instead of staying on his side
         if not agent_state.is_pacman:
@@ -395,7 +416,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     def get_weights(self, game_state, action):
       
         carrying = game_state.get_agent_state(self.index).num_carrying
-        #features = self.get_features(game_state, action)
+        features = self.get_features(game_state, action)
+        ghost_d = features.get( 'distance_to_non_scared_ghosts', 999)
         
     
 
@@ -409,7 +431,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         'stop': - 500,
         'reverse': -80,
          'on_home_side': -20,
-        'distance_to_power_capsule': -10
+        'distance_to_power_capsule': -10,
+        
        
        
         }
@@ -419,6 +442,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         if carrying >= 3:
             w['distance_to_home'] = -20
             w['distance_to_food'] = 0
+            
+        '''if ghost_d >= 6:
+            w['distance_to_food'] = -20
+            w['successor_score'] = 200'''
+
+            
             
          # end
         if game_state.data.timeleft < 150 and carrying > 0:
