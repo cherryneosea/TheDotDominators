@@ -478,7 +478,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
      # register the initial state and all the free positions on own side
     def register_initial_state(self, game_state):
         super().register_initial_state(game_state)
-        self.patrol_index = 0 #add this
+        
 
         #choose 5 points on own side of the grid, those are the 'patroeuillepunten'
         # agent will walk through these points when there is no invader
@@ -590,8 +590,8 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         #check whether there is a visible invader
         invaders = [a for a in self.get_opponents(game_state)
                     if game_state.get_agent_state(a).is_pacman]
-                    
-                            
+
+
         # higher the patrol index when arrived at the current patrolpoint (distance <= 1).
 
         if not invaders:
