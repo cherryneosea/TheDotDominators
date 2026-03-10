@@ -466,32 +466,35 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
     """
-    A reflex agent that keeps its side Pacman-free. Again,
-    this is to give you an idea of what a defensive agent
-    could be like.  It is not the best or only way to make
-    such an agent.
+    defends own side of the grid
+    works in 3 cases: 1: invader is visible (so within 5 steps): follows invader in order to catch him
+                      2: invader on own side but not visible: move with noisy distance towards it
+                      3: no opponent on own side: pattrouilleer through 5 fixed points, near the border 
+
+                      extra: in case agent is scared = opponent took capsule, agent flees from invaders.
+
     """
-  
 
      # register the initial state and all the free positions on own side
     def register_initial_state(self, game_state):
         super().register_initial_state(game_state)
         self.patrol_index = 0 #add this
 
-        #choose 3 points on own side of the grid, those are the 'patroeuillepunten'
+        #choose 5 points on own side of the grid, those are the 'patroeuillepunten'
         # agent will walk through these points when there is no invader
         
         if self.legal_home_positions:   #self.legal_home_positions is a list of the free points, given in ReflexCaptureAgent
-            sorted_pos = sorted(self.legal_home_positions, key=lambda p: p[1])  # sort these on y-coördinate, from low y-value to high y-value
+            sorted_pos = sorted(self.legal_home_positions, key=lambda p: p[1])
+            n = len(sorted_pos)
+            # sort these on y-coördinate, from low y-value to high y-value
             self.patrol_points = [
                 sorted_pos[0],
-                sorted_pos[len(sorted_pos)//2],
-                sorted_pos[-1]
-            ] 
-        #choose the one on posistion 0 (the lowest point), the one in the middle of this list (point somewhere in the middle), the one at the end of this list (highest point
+                sorted_pos[n // 4],
+                sorted_pos[n // 2],
+                sorted_pos[3 * n // 4],
+                sorted_pos[-1],
+            ]
 
-
-    # look at the state after every action, the features are based on the future state, in that way the agent can predict the effect of his actions
     def get_features(self, game_state, action):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
@@ -505,78 +508,97 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         features['on_defense'] = 1 if not my_state.is_pacman else 0
 
+        # (EXTRA CASE) when opponent eat a capsule, flee away as long as scared_timer > 0
 
-        # invaders 
+        if my_state.scared_timer > 0: 
+            enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+            invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
+            if invaders:
+                dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
+                #positive weight in get_weights -> bigger distance = higher score = flee
+                features['scared_distance'] = min(dists)
+            if action == Directions.STOP:
+                features['stop'] = 1
+            return features 
+
+
+        # get the opponents which are on our side and which are visible (position known, within 5 steps)
         enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
         invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
         features['num_invaders'] = len(invaders)
 
         if len(invaders) > 0:
-            # distance to nearest invader
+            # (CASE 1) invader visible
+            # exact position is known --> whats the maze distance and follow direclty
             dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
             features['invader_distance'] = min(dists)
         else:
-            #no invaders: go to patrouillepunt
-            target = self.patrol_points[self.patrol_index]
-            features['patrol_distance'] = self.get_maze_distance(my_pos, target)
+            # (CASE 2) invader not visible but on own side
+            #get_agents_distances() gives vor each agent the estimaded distance (with noise +- 6)
+            # if the opponent is_pacman is --> he is on our side of the grid (although we dont see him or know his exact position)
+            #agents moves in the direction where estimated distance becomes smaller
+            noisy_distances = successor.get_agent_distances()
+            opponent_indices = self.get_opponents(successor)
+            enemy_estimates = [
+                noisy_distances[i] for i in opponent_indices
+                if successor.get_agent_state(i).is_pacman
+            ]
+            if enemy_estimates:
+                features['invader_distance'] = min(enemy_estimates)
+            else: 
+                # (CASE 3) no invader on our side; patrouilleren, go to the next pattroeillepoint
+                #patrol-index increases when arrived to ponit (choose_action)
+                target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
+                features['patrol_distance'] = self.get_maze_distance(my_pos, target)
         
-        #agent wants to minimise the distance, will move to patroeillepoint
-
-        # defend own fooddots
-        # food_defend_distence; the closer we are to our own food dots, the better we can defend them
-        # food_defend_count; the less food there is left, the 
-        """food_defend = self.get_food_you_are_defending(successor).as_list()
-        if food_defend:
-            min_food_dist = min(self.get_maze_distance(my_pos, f) for f in food_defend)
-            features['food_defend_distance'] = min_food_dist
-            features['food_defend_count'] = len(food_defend)
-
         
-        # defend power capsule
-        capsules_defend = self.get_capsules_you_are_defending(successor)
-        if capsules_defend:
-            min_capsule_dist = min(self.get_maze_distance(my_pos, c) for c in capsules_defend)
-            features['capsule_defend_distance'] = min_capsule_dist"""
-            
-        # features['capsule_defend_distance'] = min_capsule_dist
-
-
-        # overall score; the higher the score the better: 
         features['successor_score'] = self.get_score(successor)
 
-        #when agent is scared -> flee 
-        """"NOG AAN TE PASSEN"""
-        #features['scared'] = 1 if my_state.scared_timer > 0:
-    
 
-
-        #standing still or going back and forth (given in baseline. alr)    
-        if action == Directions.STOP: features['stop'] = 1
+        if action == Directions.STOP: 
+            features['stop'] = 1
         rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
-        if action == rev: features['reverse'] = 1
+        if action == rev: 
+            features['reverse'] = 1
+
         return features
     
 
     def get_weights(self, game_state, action):
+        my_state = game_state.get_agent_state(self.index)
+
+        #different weights for scared case
+        if my_state.scared_timer > 0:
+            return {
+                'on_defense':      200,
+                'scared_distance':  50,
+                'stop':           -200,
+            }
         return {
             'on_defense': 100,
             'num_invaders': -1000,
             'invader_distance': -10,
-            'patrol_distance': -2,
-            'food_defend_distance': -5,
-            'food_defend_count': 100,
-            'capsule_defend_distance': -8,
+            'patrol_distance': -5,
             'successor_score': 100,
             'stop': -100,
             'reverse': -10,
-            'scared': 0
         }
-        
-    #choose the action with the highest score, if there are no invaders -> go to nearest patroeiepunt
+
+    
     def choose_action(self, game_state):
         action = super().choose_action(game_state)
-        invaders = [a for a in self.get_opponents(game_state) if game_state.get_agent_state(a).is_pacman]
-        if len(invaders) == 0:
-            self.patrol_index = (self.patrol_index + 1) % len(self.patrol_points)
+        #check whether there is a visible invader
+        invaders = [a for a in self.get_opponents(game_state)
+                    if game_state.get_agent_state(a).is_pacman]
+                    
+                            
+        # higher the patrol index when arrived at the current patrolpoint (distance <= 1).
+
+        if not invaders:
+            my_pos = game_state.get_agent_state(self.index).get_position()
+            target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
+            if self.get_maze_distance(my_pos, target) <= 1:
+                self.patrol_index = (self.patrol_index + 1) % len(self.patrol_points)
+
         return action
-    # when there is an invader; patroeille stops, invader_distance -feature with a strong negative wheight, so he wants to go there)
+    
