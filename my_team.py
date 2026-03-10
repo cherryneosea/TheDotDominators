@@ -469,7 +469,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     defends own side of the grid
     works in 3 cases: 1: invader is visible (so within 5 steps): follows invader in order to catch him
                       2: invader on own side but not visible: move with noisy distance towards it
-                      3: no opponent on own side: pattrouilleer through 5 fixed points, near the border 
+                      3: no opponent on own side: pattrouilleer through 5 fixed points, near the border, where only accesible point are used, and stays 5 boxes away from the upper and lower border
 
                       extra: in case agent is scared = opponent took capsule, agent flees from invaders.
 
@@ -479,21 +479,32 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     def register_initial_state(self, game_state):
         super().register_initial_state(game_state)
         
-
-        #choose 5 points on own side of the grid, those are the 'patroeuillepunten'
-        # agent will walk through these points when there is no invader
+        # define which border positions are accesible starting from the start point
+        start = self.start
+        reachable = []
+        for pos in self.legal_home_positions:
+            dist = self.get_maze_distance(start, pos)
+            if dist < 10000:
+                reachable.append(pos)
+        # only allow y-coordinates that are between (height - 5) and 5
+        grid_height = game_state.get_walls().height
+        min_y_allowed = 5
+        max_y_allowed = grid_height -5
+        reachable = [p for p in reachable if min_y_allowed <= p[1] <= max_y_allowed]
         
-        if self.legal_home_positions:   #self.legal_home_positions is a list of the free points, given in ReflexCaptureAgent
-            sorted_pos = sorted(self.legal_home_positions, key=lambda p: p[1])
-            n = len(sorted_pos)
-            # sort these on y-coördinate, from low y-value to high y-value
-            self.patrol_points = [
-                sorted_pos[0],
-                sorted_pos[n // 4],
-                sorted_pos[n // 2],
-                sorted_pos[3 * n // 4],
-                sorted_pos[-1],
-            ]
+        if not reachable: #no point in that zone then we go to the startposition
+            self.patrol_points = [start]
+        else: #sort on y-coordinate and choose 5 points, spread across the height of the grid
+            reachable.sort(key=lambda p: p[1])
+            n = len(reachable)
+            if n <= 5:
+                self.patrol_points = reachable
+            else:
+                indices = [0, n//4, n//2, 3*n//4, n-1]
+                self.patrol_points = [reachable [i] for i in indices]
+
+        self.patrol_index = 0
+    
 
     def get_features(self, game_state, action):
         features = util.Counter()
@@ -575,10 +586,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'stop':           -200,
             }
         return {
-            'on_defense': 100,
+            'on_defense': 1000,
             'num_invaders': -1000,
-            'invader_distance': -10,
-            'patrol_distance': -5,
+            'invader_distance': -50,
+            'patrol_distance': -15,
             'successor_score': 100,
             'stop': -100,
             'reverse': -10,
