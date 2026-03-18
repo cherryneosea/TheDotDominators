@@ -379,11 +379,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         #features = self.get_features(game_state, action)
         #ghost_d = features.get( 'distance_to_non_scared_ghosts', 999)
         
-    
+        #modification after test: making weights more aggressive
 
         w = {
     'successor_score': 100,
-    'distance_to_food': -5,
+    'distance_to_food': -10,
     'distance_to_non_scared_ghosts': 25,  
     'dead_end': -150,  
     'distance_to_home': 0,
@@ -394,7 +394,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 }
         
        
-        if carrying >= 2:
+        if carrying >= 6:
             w['distance_to_home'] = -30
             w['distance_to_food'] = 0
             
