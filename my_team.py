@@ -590,7 +590,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         action = super().choose_action(game_state)
 
         current_enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
-        has_any_invader = any(a.is_pacman for a in current_enemies)
+        has_any_invader = any(a.is_pacman and a.get_position() is not None for a in current_enemies)
 
         if not has_any_invader:
             my_pos = game_state.get_agent_state(self.index).get_position()
