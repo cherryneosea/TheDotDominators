@@ -480,20 +480,15 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         super().register_initial_state(game_state)
         
         # define which border positions are accesible starting from the start point
-        start = self.start
-        reachable = []
-        for pos in self.legal_home_positions:
-            dist = self.get_maze_distance(start, pos)
-            if dist < 10000:
-                reachable.append(pos)
-        # only allow y-coordinates that are between (height - 5) and 5
         grid_height = game_state.get_walls().height
         min_y_allowed = 5
-        max_y_allowed = grid_height -5
-        reachable = [p for p in reachable if min_y_allowed <= p[1] <= max_y_allowed]
+        max_y_allowed = grid_height - 5
+        
+        reachable = [p for p in self.legal_home_positions
+                     if min_y_allowed <= p[1] <= max_y_allowed]
         
         if not reachable: #no point in that zone then we go to the startposition
-            self.patrol_points = [start]
+            self.patrol_points = [self.start]
         else: #sort on y-coordinate and choose 5 points, spread across the height of the grid
             reachable.sort(key=lambda p: p[1])
             n = len(reachable)
@@ -501,7 +496,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 self.patrol_points = reachable
             else:
                 indices = [0, n//4, n//2, 3*n//4, n-1]
-                self.patrol_points = [reachable [i] for i in indices]
+                self.patrol_points = [reachable[i] for i in indices]
 
         self.patrol_index = 0
     
@@ -534,31 +529,25 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
 
         # get the opponents which are on our side and which are visible (position known, within 5 steps)
-        enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
-        invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
+        # gebruik game_state voor invader-detectie, successor voor positieberekening
+        current_enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        invaders = [a for a in current_enemies if a.is_pacman and a.get_position() is not None]
         features['num_invaders'] = len(invaders)
 
-        if len(invaders) > 0:
-            # (CASE 1) invader visible
-            # exact position is known --> whats the maze distance and follow direclty
+        if len(invaders):
+            #case 1: visible invader
             dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
             features['invader_distance'] = min(dists)
         else:
-            # (CASE 2) invader not visible but on own side
-            #get_agents_distances() gives vor each agent the estimaded distance (with noise +- 6)
-            # if the opponent is_pacman is --> he is on our side of the grid (although we dont see him or know his exact position)
-            #agents moves in the direction where estimated distance becomes smaller
-            noisy_distances = successor.get_agent_distances()
-            opponent_indices = self.get_opponents(successor)
-            enemy_estimates = [
-                noisy_distances[i] for i in opponent_indices
-                if successor.get_agent_state(i).is_pacman
-            ]
-            if enemy_estimates:
-                features['invader_distance'] = min(enemy_estimates)
-            else: 
-                # (CASE 3) no invader on our side; patrouilleren, go to the next pattroeillepoint
-                #patrol-index increases when arrived to ponit (choose_action)
+            invisible_invaders = [a for a in current_enemies 
+                                  if a.is_pacman and a.get_position() is None]
+
+            if invisible_invaders:
+            #case 2: invisible invader
+                closest_border = min(self.legal_home_positions,
+                         key=lambda p: self.get_maze_distance(my_pos, p))
+                features['patrol_distance'] = self.get_maze_distance(my_pos, closest_border)
+            else:
                 target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
                 features['patrol_distance'] = self.get_maze_distance(my_pos, target)
         
@@ -588,7 +577,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         return {
             'on_defense': 1000,
             'num_invaders': -1000,
-            'invader_distance': -50,
+            'invader_distance': -100,
             'patrol_distance': -15,
             'successor_score': 100,
             'stop': -100,
@@ -599,14 +588,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     def choose_action(self, game_state):
         #print('Mijn code is nu aan het runnen: defensive')
         action = super().choose_action(game_state)
-        #check whether there is a visible invader
-        invaders = [a for a in self.get_opponents(game_state)
-                    if game_state.get_agent_state(a).is_pacman]
 
+        current_enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        has_any_invader = any(a.is_pacman for a in current_enemies)
 
-        # higher the patrol index when arrived at the current patrolpoint (distance <= 1).
-
-        if not invaders:
+        if not has_any_invader:
             my_pos = game_state.get_agent_state(self.index).get_position()
             target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
             if self.get_maze_distance(my_pos, target) <= 1:
