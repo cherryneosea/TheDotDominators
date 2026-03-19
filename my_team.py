@@ -515,6 +515,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         features['on_defense'] = 1 if not my_state.is_pacman else 0
 
         # (EXTRA CASE) when opponent eat a capsule, flee away as long as scared_timer > 0
+        rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
+        if action == rev:
+            features['reverse'] = 1
 
         if my_state.scared_timer > 0: 
             enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
@@ -534,7 +537,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         invaders = [a for a in current_enemies if a.is_pacman and a.get_position() is not None]
         features['num_invaders'] = len(invaders)
 
-        if len(invaders):
+        if invaders:
             #case 1: visible invader
             dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
             features['invader_distance'] = min(dists)
@@ -544,9 +547,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
             if invisible_invaders:
             #case 2: invisible invader
-                closest_border = min(self.legal_home_positions,
-                         key=lambda p: self.get_maze_distance(my_pos, p))
-                features['patrol_distance'] = self.get_maze_distance(my_pos, closest_border)
+                mid_index = len(self.legal_home_positions) // 2
+                mid_border = self.legal_home_positions[mid_index]
+                features['patrol_distance'] = self.get_maze_distance(my_pos, mid_border)
             else:
                 target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
                 features['patrol_distance'] = self.get_maze_distance(my_pos, target)
@@ -557,9 +560,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         if action == Directions.STOP: 
             features['stop'] = 1
-        rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
-        if action == rev: 
-            features['reverse'] = 1
+    
 
         return features
     
@@ -573,6 +574,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'on_defense':      200,
                 'scared_distance':  50,
                 'stop':           -200,
+                'reverse': -10,
             }
         return {
             'on_defense': 1000,
