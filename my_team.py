@@ -390,7 +390,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     'stop': -500,
     'reverse': -80,
    
-    'distance_to_power_capsule': -20,
 }
         
        
