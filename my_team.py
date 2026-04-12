@@ -286,8 +286,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         features = util.Counter()
         #compute once for efficiency
         successor = self.get_successor(game_state, action)
-        
-        #because get food returns a grid-obj 2D boolean array
         food_list = self.get_food(successor).as_list()
       
         features["distance_to_food"] = self.distance_to_food_dots(successor, food_list)
