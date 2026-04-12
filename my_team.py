@@ -555,16 +555,14 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         my_pos = agent_state.get_position()
 
       
-        #is the agent on our own side? (yes = 1, no = 0)
         features['on_defense'] = self.invaders_on_own_side(agent_state)
 
-        #when opponent eat a capsule, flee away as long as scared_timer > 0
+      
         rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
         if action == rev:
             features['reverse'] = 1
 
-        # get the opponents which are on our side and which are visible (position known, within 5 steps)
-        # gebruik game_state voor invader-detectie, successor voor positieberekening
+        # get the opponents which are on our side and which are visible 
         current_enemies = self.get_current_opponents(successor)
         invaders = self.get_current_invaders(current_enemies)
         features['num_invaders'] = len(invaders)
