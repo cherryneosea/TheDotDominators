@@ -244,7 +244,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 [self.get_maze_distance(my_pos, not_scared) for not_scared in non_scared_ghosts]
             )
             return min_distance_to_notscared
-        return 999 #default value
+        #default value
+        return 999 
       
             
                   
@@ -449,7 +450,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     """
     defends own side of the grid
     works in 3 cases: 1: invader is visible (so within 5 steps): follows invader in order to catch him
-                      2: invader on own side but not visible: move with noisy distance towards it
+                      later added correction: this features is wrong: (2: invader on own side but not visible: exact position is unknown)
                       3: no opponent on own side: pattrouilleer through 5 fixed points, near the border, where only accesible point are used, and stays 5 boxes away from the upper and lower border
 
                       extra: in case agent is scared = opponent took capsule, agent flees from invaders.
@@ -513,6 +514,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         all_invaders = [a for a in opponents if a.is_pacman and a.get_position() is not None]
         return all_invaders
     
+    """wrong reasoning used here when implemented this method, see explanation in report"""
     def get_invisible_invaders(self, opponents):
         """returns invisible invaders"""
         res = [a for a in opponents if a.is_pacman and a.get_position() is None]
