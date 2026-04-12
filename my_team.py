@@ -238,15 +238,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 if not is_scared:
                     non_scared_ghosts.append(ghost_pos)
                  
-            if len(non_scared_ghosts) > 0:
-                my_pos = successor.get_agent_state(self.index).get_position()
-                min_distance_to_notscared = min(
+        if len(non_scared_ghosts) > 0:
+            my_pos = successor.get_agent_state(self.index).get_position()
+            min_distance_to_notscared = min(
                 [self.get_maze_distance(my_pos, not_scared) for not_scared in non_scared_ghosts]
             )
-                return min_distance_to_notscared
-            else:
-            #no visible non scared ghosts => default value
-                return 999
+            return min_distance_to_notscared
+        return 999 #default value
+      
             
                   
     def get_successor_score(self, food_lst):
