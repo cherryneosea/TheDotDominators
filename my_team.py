@@ -69,10 +69,10 @@ class ReflexCaptureAgent(CaptureAgent):
         self.start = None
         self.legal_home_positions = []
         self.patrol_poitns = []
-        self.last_pos = None
+       
         
     def compute_legal_home_positions(self, game_state):
-        """this function precomputes all legal home positions"""
+        """returns all legal home positions"""
         grid_width = game_state.get_walls().width
         grid_height = game_state.get_walls().height
         mid_grid = grid_width // 2
@@ -94,7 +94,7 @@ class ReflexCaptureAgent(CaptureAgent):
     def register_initial_state(self, game_state):
         self.start = game_state.get_agent_position(self.index)
         CaptureAgent.register_initial_state(self, game_state)
-        #added legal home positions at start of the game, since they are constant
+        #precomputing legal home positions at start of the game
         self.legal_home_positions = self.compute_legal_home_positions(game_state)
             
  
@@ -172,34 +172,35 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     The implemented features are meant to encourage pacman to collect as many food-dots with caution
     
     """
+    
+    
 
-    #helper methods:
+    #helper methods to implement features:
     def detect_dead_ends(self, game_state, successor, features):
-            
-        # Count available exits from current position (dead end detection)
+        """returns the number of exits available from current position to detect dead"""    
+        # detect dead-ends from current positions
         my_pos = successor.get_agent_state(self.index).get_position()
         walls = game_state.get_walls()
         x, y = int(my_pos[0]), int(my_pos[1])
-        num_exits = sum([
-             not walls[x+1][y],
-            not walls[x-1][y],
-             not walls[x][y+1],
-             not walls[x][y-1]
+        num_exits_adjacent_cells = sum([not walls[x+1][y], not walls[x-1][y], not walls[x][y+1], not walls[x][y-1]
             ])
-        ghost_dist = features.get('distance_to_non_scared_ghosts', 999)
-        if num_exits <= 1:
-            if ghost_dist < 6:
-                return 3  # very dangerous
-            elif ghost_dist < 10:
+        ghost_distance = features.get('distance_to_non_scared_ghosts', 999)
+        if num_exits_adjacent_cells <= 1:
+            #ghots is very close => pacman is in danger
+            if ghost_distance < 6:
+                return 3 
+            #ghost is close => risky 
+            elif ghost_distance < 10:
                 return 1  # risky
+            #ghost is far, safe to collect food-dots
             else:
-                return  0  # safe, ghost is far
+                return  0 
         else:
             return 0
       
         
     def get_reverse_action(self, game_state, action):
-        """returns whether the current action..."""
+        """returns whether the action takes is the opposite of the current action"""
         reverse = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
         if action == reverse:
             return 1
@@ -244,12 +245,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             )
                 return min_distance_to_notscared
             else:
-            #no visible non scared ghosts-> default value
+            #no visible non scared ghosts => default value
                 return 999
             
                   
     def get_successor_score(self, food_lst):
-        """return the immediate gain after eating a food dot"""
+        """returns the number of uneaten food-dots"""
         return -len(food_lst)
         
     def distance_to_food_dots(self, successor, food_lst):
@@ -455,85 +456,136 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                       extra: in case agent is scared = opponent took capsule, agent flees from invaders.
 
     """
-
-     # register the initial state and all the free positions on own side
-    def register_initial_state(self, game_state):
-        super().register_initial_state(game_state)
-        
-        # define which border positions are accesible starting from the start point
+    def availabe_home_positions_for_defense(self, game_state):
+        """ returns which border positions are accesible starting from the start point"""
         grid_height = game_state.get_walls().height
         min_y_allowed = 5
         max_y_allowed = grid_height - 5
-        
-        reachable = [p for p in self.legal_home_positions
+        result = [p for p in self.legal_home_positions
                      if min_y_allowed <= p[1] <= max_y_allowed]
-        
-        if not reachable: #no point in that zone then we go to the startposition
+        return result
+    
+    
+    
+    def patrol_border_points(self, defense_points):
+        """returns border points for defense to defend"""
+        if not defense_points: #no point in that zone then we go to the startposition
             self.patrol_points = [self.start]
         else: #sort on y-coordinate and choose 5 points, spread across the height of the grid
-            reachable.sort(key=lambda p: p[1])
-            n = len(reachable)
+            defense_points.sort(key=lambda p: p[1])
+            n = len(defense_points)
             if n <= 5:
-                self.patrol_points = reachable
+                self.patrol_points = defense_points
             else:
                 indices = [0, n//4, n//2, 3*n//4, n-1]
-                self.patrol_points = [reachable[i] for i in indices]
+                self.patrol_points = [defense_points[i] for i in indices]
 
         self.patrol_index = 0
+        return self.patrol_points
     
 
+
+
+     
+    def register_initial_state(self, game_state):
+        super().register_initial_state(game_state)
+        
+        #precomputing all border positions that are accesible starting from the start point
+        reachable_border_positions = self.availabe_home_positions_for_defense(game_state)
+        self.patrol_border_points(reachable_border_positions)
+        
+    
+
+    #helper methods to implement features:
+    def invaders_on_own_side(self, agent_state):
+        """binary feature that returns whether there are invader on our side"""
+        if not agent_state.is_pacman:
+            return 1
+        else:
+            return 0
+        
+    def get_current_opponents(self, successor):
+        """returns opponents in a given game_state"""
+        opponents = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+        return opponents
+    
+    def get_current_invaders(self, opponents):
+        """returns invaders on our side"""
+        all_invaders = [a for a in opponents if a.is_pacman and a.get_position() is not None]
+        return all_invaders
+    
+    def get_invisible_invaders(self, opponents):
+        """returns invisible invaders"""
+        res = [a for a in opponents if a.is_pacman and a.get_position() is None]
+        return res
+
+    
+    def get_scared_defender_distance(self, agent_pos, agent_state, invaders):
+        """returns the minimum distance to invaders when scared"""
+        if agent_state.scared_timer > 0 and invaders: 
+            dists = [self.get_maze_distance(agent_pos, a.get_position()) for a in invaders]
+                #positive weight in get_weights -> bigger distance = higher score = flee
+            return min(dists)
+        return None
+    
+    def get_invader_distance(self, invaders, agent_pos):
+        """returns minimum distance to all invaders"""
+        dists = [self.get_maze_distance(agent_pos, a.get_position()) for a in invaders]
+        return min(dists)
+    
+    def patrol_distance_to_borders(self, agent_pos):
+        """returns the middle border position for defense"""
+        mid_index = len(self.legal_home_positions) // 2
+        mid_border = self.legal_home_positions[mid_index]
+        return self.get_maze_distance(agent_pos, mid_border)
+    
+    def patrol_distance_to_targets(self, agent_pos):
+        """returns distnace to target on patrol points"""
+        target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
+        return self.get_maze_distance(agent_pos, target)
+    
+           
+         
     def get_features(self, game_state, action):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
 
-        my_state = successor.get_agent_state(self.index)
-        my_pos = my_state.get_position()
+        agent_state = successor.get_agent_state(self.index)
+        my_pos = agent_state.get_position()
 
-        # the agent is a defender = should stay on own side
-        # bonus if agent is still on own side after an action
+      
         #is the agent on our own side? (yes = 1, no = 0)
+        features['on_defense'] = self.invaders_on_own_side(agent_state)
 
-        features['on_defense'] = 1 if not my_state.is_pacman else 0
-
-        # (EXTRA CASE) when opponent eat a capsule, flee away as long as scared_timer > 0
+        #when opponent eat a capsule, flee away as long as scared_timer > 0
         rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
         if action == rev:
             features['reverse'] = 1
 
-        if my_state.scared_timer > 0: 
-            enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
-            invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
-            if invaders:
-                dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
-                #positive weight in get_weights -> bigger distance = higher score = flee
-                features['scared_distance'] = min(dists)
-            if action == Directions.STOP:
-                features['stop'] = 1
-            return features 
-
-
         # get the opponents which are on our side and which are visible (position known, within 5 steps)
         # gebruik game_state voor invader-detectie, successor voor positieberekening
-        current_enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
-        invaders = [a for a in current_enemies if a.is_pacman and a.get_position() is not None]
+        current_enemies = self.get_current_opponents(successor)
+        invaders = self.get_current_invaders(current_enemies)
         features['num_invaders'] = len(invaders)
+        
+        scared_distance = self.get_scared_defender_distance(my_pos, agent_state, invaders)
+        if scared_distance is not None:
+            features['scared_distance'] = scared_distance
+            if action == Directions.STOP:
+                features['stop'] = 1
+            return features #early returns, because cant chase when scared
 
         if invaders:
             #case 1: visible invader
-            dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
-            features['invader_distance'] = min(dists)
+            features['invader_distance'] = self.get_invader_distance(invaders, my_pos)
         else:
-            invisible_invaders = [a for a in current_enemies 
-                                  if a.is_pacman and a.get_position() is None]
+            invisible_invaders = self.get_invisible_invaders(current_enemies)
 
             if invisible_invaders:
             #case 2: invisible invader
-                mid_index = len(self.legal_home_positions) // 2
-                mid_border = self.legal_home_positions[mid_index]
-                features['patrol_distance'] = self.get_maze_distance(my_pos, mid_border)
+                features['patrol_distance'] = self.patrol_distance_to_borders(my_pos)
             else:
-                target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
-                features['patrol_distance'] = self.get_maze_distance(my_pos, target)
+                features['patrol_distance'] = self.patrol_distance_to_targets(my_pos)
         
         
         features['successor_score'] = self.get_score(successor)
@@ -569,16 +621,16 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     
     def choose_action(self, game_state):
-        #print('Mijn code is nu aan het runnen: defensive')
+        
         action = super().choose_action(game_state)
 
-        current_enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        current_enemies = self.get_current_opponents(game_state) 
         has_any_invader = any(a.is_pacman and a.get_position() is not None for a in current_enemies)
 
         if not has_any_invader:
             my_pos = game_state.get_agent_state(self.index).get_position()
-            target = self.patrol_points[self.patrol_index % len(self.patrol_points)]
-            if self.get_maze_distance(my_pos, target) <= 1:
+            dist_to_target = self.patrol_distance_to_targets(my_pos)
+            if dist_to_target <= 1:
                 self.patrol_index = (self.patrol_index + 1) % len(self.patrol_points)
 
         return action
